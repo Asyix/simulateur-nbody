@@ -13,6 +13,8 @@ dependencies {
     implementation 'io.quarkus:quarkus-resteasy-jsonb'
     implementation 'io.quarkus:quarkus-arc'
     implementation 'io.quarkus:quarkus-resteasy'
+    implementation 'jakarta.websocket:jakarta.websocket-api'
+    implementation "io.quarkus:quarkus-websockets"
     testImplementation 'io.quarkus:quarkus-junit5'
     testImplementation 'io.rest-assured:rest-assured'
 }
