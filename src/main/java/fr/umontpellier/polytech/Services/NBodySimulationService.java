@@ -1,70 +1,52 @@
 package fr.umontpellier.polytech.Services;
 
+import fr.umontpellier.polytech.Controllers.SimulationController;
 import fr.umontpellier.polytech.Models.Body;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.json.Json;
-import jakarta.json.JsonObject;
-import jakarta.websocket.OnMessage;
-import jakarta.websocket.OnOpen;
-import jakarta.websocket.Session;
-import jakarta.websocket.server.ServerEndpoint;
+import jakarta.inject.Inject;
 
-import java.io.StringReader;
-import java.util.*;
-import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 import java.util.stream.Collectors;
 
-@ServerEndpoint("/simulation")
 @ApplicationScoped
 public class NBodySimulationService {
 
-    private final Set<Session> sessions = new CopyOnWriteArraySet<>();
     private List<Body> bodies = new ArrayList<>();
     private boolean running = true;
-
     private double gravity;
 
-    @OnOpen
-    public void onOpen(Session session) {
-        sessions.add(session);
-        session.getAsyncRemote().sendText(getCurrentStateAsJson());
+    @Inject
+    private SimulationController simulationController;
+
+    public void startSimulation(int numBodies, double gravity) {
+        System.out.println("🚀 Starting simulation with " + numBodies + " bodies, gravity: " + gravity);
+        initializeBodies(numBodies);
+        updateGravity(gravity);
+
+        new Thread(() -> {
+            running = true;
+            while (running) {
+                updateSimulation();
+                simulationController.sendUpdateToClients(getCurrentStateAsJson());
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }).start();
     }
 
-    @OnMessage
-    public void onMessage(String message, Session session) {
-        System.out.println("📩 Received WebSocket message: " + message); // Log the message
+    public void updateSimulation(int numBodies, double gravity) {
+        updateBodies(numBodies);
+        updateGravity(gravity);
+    }
 
-        try {
-            JsonObject json = Json.createReader(new StringReader(message)).readObject();
-            String action = json.getString("action", "");
-
-            double gravityConstant = 6.67430e-11;
-            if (action.equals("start")) {
-                int numBodies = json.getInt("numBodies", 5);
-                double gravity = json.getJsonNumber("gravity").doubleValue() * gravityConstant;
-
-                System.out.println("🚀 Starting simulation with " + numBodies + " bodies, gravity: " + gravity);
-
-                initializeBodies(numBodies);  // Ensure this method exists
-                updateGravity(gravity);  // Ensure this updates gravity
-                startSimulation();
-            } else if (action.equals("update")) {
-                int numBodies = json.getInt("numBodies");
-                double gravity = json.getJsonNumber("gravity").doubleValue() * gravityConstant;
-
-                updateBodies(numBodies);  // Ensure this method exists
-                updateGravity(gravity);  // Ensure this updates gravity
-            }
-            else if (action.equals("stop")) {
-                System.out.println("🛑 Stopping simulation.");
-                running = false;
-            } else {
-                System.out.println("❌ Unknown action received.");
-            }
-        } catch (Exception e) {
-            System.err.println("❌ Error processing WebSocket message: " + e.getMessage());
-            session.getAsyncRemote().sendText("Invalid message format");
-        }
+    public void stopSimulation() {
+        System.out.println("🛑 Stopping simulation.");
+        running = false;
     }
 
     private void initializeBodies(int numBodies) {
@@ -79,7 +61,8 @@ public class NBodySimulationService {
     }
 
     private void updateGravity(double gravity) {
-        this.gravity = gravity;
+        double g = 6.67430e-11;
+        this.gravity = gravity * g * 1000;
     }
 
     private void updateBodies(int numBodies) {
@@ -90,25 +73,10 @@ public class NBodySimulationService {
             for (int i = bodies.size(); i < numBodies; i++) {
                 double x = random.nextDouble(-1.0, 1) * 1000;
                 double y = random.nextDouble(-1.0, 1) * 1000;
-                double mass = random.nextDouble() * 10000000;
+                double mass = random.nextDouble() * 10;
                 bodies.add(new Body(x, y, mass));
             }
         }
-    }
-
-    private void startSimulation() {
-        new Thread(() -> {
-            running = true;
-            while (running) {
-                updateSimulation();
-                sendUpdateToClients();
-                try {
-                    Thread.sleep(50);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            }
-        }).start();
     }
 
     private void updateSimulation() {
@@ -116,8 +84,8 @@ public class NBodySimulationService {
         for (Body body : bodies) {
             for (Body other : bodies) {
                 if (body != other) {
-                    double dx = other.x - body.x;
-                    double dy = other.y - body.y;
+                    double dx = Math.abs(other.x - body.x);
+                    double dy = Math.abs(other.y - body.y);
                     double distance = Math.sqrt(dx * dx + dy * dy);
                     double force = G * body.mass * other.mass / (distance * distance);
                     double ax = force * dx / distance / body.mass;
@@ -131,14 +99,7 @@ public class NBodySimulationService {
         }
     }
 
-    private void sendUpdateToClients() {
-        String json = getCurrentStateAsJson();
-        for (Session session : sessions) {
-            session.getAsyncRemote().sendText(json);
-        }
-    }
-
-    private String getCurrentStateAsJson() {
+    public String getCurrentStateAsJson() {
         return bodies.stream().map(Body::toJson).collect(Collectors.joining(",", "[", "]"));
     }
 }
