@@ -22,7 +22,7 @@ public class NBodySimulationService {
     private List<Body> bodies = new ArrayList<>();
     private boolean running = true;
 
-    private double gravity = 6.67430e-11;
+    private double gravity;
 
     @OnOpen
     public void onOpen(Session session) {
@@ -38,16 +38,24 @@ public class NBodySimulationService {
             JsonObject json = Json.createReader(new StringReader(message)).readObject();
             String action = json.getString("action", "");
 
+            double gravityConstant = 6.67430e-11;
             if (action.equals("start")) {
                 int numBodies = json.getInt("numBodies", 5);
-                double gravity = json.getJsonNumber("gravity").doubleValue();
+                double gravity = json.getJsonNumber("gravity").doubleValue() * gravityConstant;
 
                 System.out.println("🚀 Starting simulation with " + numBodies + " bodies, gravity: " + gravity);
 
                 initializeBodies(numBodies);  // Ensure this method exists
                 updateGravity(gravity);  // Ensure this updates gravity
                 startSimulation();
-            } else if (action.equals("stop")) {
+            } else if (action.equals("update")) {
+                int numBodies = json.getInt("numBodies");
+                double gravity = json.getJsonNumber("gravity").doubleValue() * gravityConstant;
+
+                updateBodies(numBodies);  // Ensure this method exists
+                updateGravity(gravity);  // Ensure this updates gravity
+            }
+            else if (action.equals("stop")) {
                 System.out.println("🛑 Stopping simulation.");
                 running = false;
             } else {
@@ -63,9 +71,9 @@ public class NBodySimulationService {
         bodies.clear();
         Random random = new Random();
         for (int i = 0; i < numBodies; i++) {
-            double x = random.nextDouble() * 100;
-            double y = random.nextDouble() * 100;
-            double mass = random.nextDouble() * 10;
+            double x = random.nextDouble(-1.0, 1) * 1000;
+            double y = random.nextDouble(-1.0, 1) * 1000;
+            double mass = random.nextDouble() * 10000000;
             bodies.add(new Body(x, y, mass));
         }
     }
@@ -74,6 +82,19 @@ public class NBodySimulationService {
         this.gravity = gravity;
     }
 
+    private void updateBodies(int numBodies) {
+        if (numBodies < bodies.size()) {
+            bodies = bodies.subList(0, numBodies);
+        } else if (numBodies > bodies.size()) {
+            Random random = new Random();
+            for (int i = bodies.size(); i < numBodies; i++) {
+                double x = random.nextDouble(-1.0, 1) * 1000;
+                double y = random.nextDouble(-1.0, 1) * 1000;
+                double mass = random.nextDouble() * 10000000;
+                bodies.add(new Body(x, y, mass));
+            }
+        }
+    }
 
     private void startSimulation() {
         new Thread(() -> {
@@ -119,9 +140,5 @@ public class NBodySimulationService {
 
     private String getCurrentStateAsJson() {
         return bodies.stream().map(Body::toJson).collect(Collectors.joining(",", "[", "]"));
-    }
-
-    private void updateSettings(String message) {
-        // Implement the method to update settings based on the message
     }
 }
