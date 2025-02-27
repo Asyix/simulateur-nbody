@@ -5,15 +5,15 @@ import fr.umontpellier.polytech.Models.Body;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class NBodySimulationService {
 
-    private List<Body> bodies = new ArrayList<>();
+    private List<Body> bodies = new CopyOnWriteArrayList<>();
     private boolean running = true;
     private double gravity;
 
@@ -28,10 +28,11 @@ public class NBodySimulationService {
         new Thread(() -> {
             running = true;
             while (running) {
-                updateSimulation();
+                double dt = 0.005;
+                updateSimulation(dt);
                 simulationController.sendUpdateToClients(getCurrentStateAsJson());
                 try {
-                    Thread.sleep(50);
+                    Thread.sleep((long)(dt*1000));
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
@@ -55,14 +56,15 @@ public class NBodySimulationService {
         for (int i = 0; i < numBodies; i++) {
             double x = random.nextDouble(-1.0, 1) * 1000;
             double y = random.nextDouble(-1.0, 1) * 1000;
-            double mass = random.nextDouble() * 10000000;
+            double mass = random.nextDouble() * 10;
             bodies.add(new Body(x, y, mass));
         }
     }
 
     private void updateGravity(double gravity) {
-        double g = 6.67430e-11;
-        this.gravity = gravity * g * 1000;
+        // gravitational constant scaled for the simulation purposes
+        double g = 6.67430 * 100;
+        this.gravity = gravity * g;
     }
 
     private void updateBodies(int numBodies) {
@@ -79,14 +81,16 @@ public class NBodySimulationService {
         }
     }
 
-    private void updateSimulation() {
+    private void updateSimulation(double dt) {
         double G = this.gravity;
+        double epsilon = 1.0;
         for (Body body : bodies) {
             for (Body other : bodies) {
                 if (body != other) {
-                    double dx = Math.abs(other.x - body.x);
-                    double dy = Math.abs(other.y - body.y);
-                    double distance = Math.sqrt(dx * dx + dy * dy);
+                    double dx = other.x - body.x;
+                    double dy = other.y - body.y;
+                    double distanceSquared = dx * dx + dy * dy + epsilon * epsilon; // Apply softening
+                    double distance = Math.sqrt(distanceSquared);
                     double force = G * body.mass * other.mass / (distance * distance);
                     double ax = force * dx / distance / body.mass;
                     double ay = force * dy / distance / body.mass;
@@ -94,8 +98,8 @@ public class NBodySimulationService {
                     body.vy += ay;
                 }
             }
-            body.x += body.vx;
-            body.y += body.vy;
+            body.x += body.vx * dt;
+            body.y += body.vy * dt;
         }
     }
 
