@@ -1,9 +1,8 @@
 package fr.umontpellier.polytech.Services;
 
-import fr.umontpellier.polytech.Controllers.SimulationController;
+import fr.umontpellier.polytech.Controllers.SimulationUpdateListener;
 import fr.umontpellier.polytech.Models.Body;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.Random;
@@ -16,12 +15,28 @@ public class NBodySimulationService {
     private List<Body> bodies = new CopyOnWriteArrayList<>();
     private boolean running = true;
     private double gravity;
+    private SimulationUpdateListener updateListener;
 
-    @Inject
-    private SimulationController simulationController;
+    public void setUpdateListener(SimulationUpdateListener updateListener) {
+        this.updateListener = updateListener;
+    }
 
-    public void startSimulation(int numBodies, double gravity) {
-        System.out.println("🚀 Starting simulation with " + numBodies + " bodies, gravity: " + gravity);
+    public List<Body> getBodies() {
+        return bodies;
+    }
+
+    public double getGravity() {
+        return gravity;
+    }
+
+    public void startSimulation(Integer numBodies, Double gravity) {
+        if (numBodies == null || numBodies < 0) {
+            numBodies = 0;
+        }
+        if (gravity == null || gravity < 0) {
+            gravity = 0.0;
+        }
+        //System.out.println("🚀 Starting simulation with " + numBodies + " bodies, gravity: " + gravity);
         initializeBodies(numBodies);
         updateGravity(gravity);
 
@@ -30,7 +45,7 @@ public class NBodySimulationService {
             while (running) {
                 double dt = 0.005;
                 updateSimulation(dt);
-                simulationController.sendUpdateToClients(getCurrentStateAsJson());
+                updateListener.onSimulationUpdate(getCurrentStateAsJson());
                 try {
                     Thread.sleep((long)(dt*1000));
                 } catch (InterruptedException e) {
@@ -40,17 +55,30 @@ public class NBodySimulationService {
         }).start();
     }
 
-    public void updateSimulation(int numBodies, double gravity) {
+    public void updateSimulationSettings(Integer numBodies, Double gravity) {
+        if (numBodies == null || numBodies < 0) {
+            numBodies = 0;
+        }
+        if (gravity == null || gravity < 0) {
+            gravity = 0.0;
+        }
         updateBodies(numBodies);
         updateGravity(gravity);
     }
 
     public void stopSimulation() {
-        System.out.println("🛑 Stopping simulation.");
+        //System.out.println("🛑 Stopping simulation.");
         running = false;
+        bodies.clear();
     }
 
-    private void initializeBodies(int numBodies) {
+    private void initializeBodies(Integer numBodies) {
+        if (numBodies == null || numBodies < 0) {
+            numBodies = 0;
+        }
+        else if (numBodies > 1000) {
+            numBodies = 1000;
+        }
         bodies.clear();
         Random random = new Random();
         for (int i = 0; i < numBodies; i++) {
@@ -61,13 +89,22 @@ public class NBodySimulationService {
         }
     }
 
-    private void updateGravity(double gravity) {
+    private void updateGravity(Double gravity) {
+        if (gravity == null || gravity < 0) {
+            gravity = 0.0;
+        }
         // gravitational constant scaled for the simulation purposes
         double g = 6.67430 * 100;
         this.gravity = gravity * g;
     }
 
-    private void updateBodies(int numBodies) {
+    private void updateBodies(Integer numBodies) {
+        if (numBodies == null || numBodies < 0) {
+            numBodies = 0;
+        }
+        else if (numBodies > 1000) {
+            numBodies = 1000;
+        }
         if (numBodies < bodies.size()) {
             bodies = bodies.subList(0, numBodies);
         } else if (numBodies > bodies.size()) {
@@ -81,7 +118,13 @@ public class NBodySimulationService {
         }
     }
 
-    private void updateSimulation(double dt) {
+    private void updateSimulation(Double dt) {
+        if (dt == null || dt < 0) {
+            dt = 0.005;
+        }
+        if (bodies.isEmpty()) {
+            return;
+        }
         double G = this.gravity;
         double epsilon = 1.0;
         for (Body body : bodies) {
@@ -104,6 +147,9 @@ public class NBodySimulationService {
     }
 
     public String getCurrentStateAsJson() {
+        if (bodies.isEmpty()) {
+            return "[]";
+        }
         return bodies.stream().map(Body::toJson).collect(Collectors.joining(",", "[", "]"));
     }
 }

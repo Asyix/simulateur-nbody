@@ -16,12 +16,12 @@ import java.util.concurrent.CopyOnWriteArraySet;
 
 @ServerEndpoint("/simulation")
 @ApplicationScoped
-public class SimulationController {
+public class SimulationController implements SimulationUpdateListener {
 
-    private final Set<Session> sessions = new CopyOnWriteArraySet<>();
+    final Set<Session> sessions = new CopyOnWriteArraySet<>();
 
     @Inject
-    private NBodySimulationService simulationService;
+    NBodySimulationService simulationService;
 
     @OnOpen
     public void onOpen(Session session) {
@@ -31,7 +31,7 @@ public class SimulationController {
 
     @OnMessage
     public void onMessage(String message, Session session) {
-        System.out.println("📩 Received WebSocket message: " + message);
+        //System.out.println("📩 Received WebSocket message: " + message);
 
         try {
             JsonObject json = Json.createReader(new StringReader(message)).readObject();
@@ -40,20 +40,26 @@ public class SimulationController {
             if (action.equals("start")) {
                 int numBodies = json.getInt("numBodies", 5);
                 double gravity = json.getJsonNumber("gravity").doubleValue();
+                simulationService.setUpdateListener(this);
                 simulationService.startSimulation(numBodies, gravity);
             } else if (action.equals("update")) {
                 int numBodies = json.getInt("numBodies");
                 double gravity = json.getJsonNumber("gravity").doubleValue();
-                simulationService.updateSimulation(numBodies, gravity);
+                simulationService.updateSimulationSettings(numBodies, gravity);
             } else if (action.equals("stop")) {
                 simulationService.stopSimulation();
             } else {
-                System.out.println("❌ Unknown action received.");
+                session.getAsyncRemote().sendText("❌ Unknown action received.");
             }
         } catch (Exception e) {
             System.err.println("❌ Error processing WebSocket message: " + e.getMessage());
             session.getAsyncRemote().sendText("Invalid message format");
         }
+    }
+
+    @Override
+    public void onSimulationUpdate(String json) {
+        sendUpdateToClients(json);
     }
 
     public void sendUpdateToClients(String json) {
