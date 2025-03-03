@@ -1,3 +1,7 @@
+# Run the project locally
+
+Run with IntelliJ Idea // use Quarkus CLI : quarkus dev // ./gradlew quarkusDev
+
 # simulateur-nbody
 
 This project uses Quarkus, the Supersonic Subatomic Java Framework.
