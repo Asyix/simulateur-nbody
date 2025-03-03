@@ -1,0 +1,1 @@
+typeSearchIndex = [{"l":"All Classes and Interfaces","u":"allclasses-index.html"},{"p":"fr.umontpellier.polytech.Models","l":"Body"},{"p":"fr.umontpellier.polytech.Services","l":"NBodySimulationService"},{"p":"fr.umontpellier.polytech.Controllers","l":"SimulationController"},{"p":"fr.umontpellier.polytech.Controllers","l":"SimulationUpdateListener"}];updateSearchResults();

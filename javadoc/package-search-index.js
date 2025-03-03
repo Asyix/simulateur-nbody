@@ -1,0 +1,1 @@
+packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"l":"fr.umontpellier.polytech.Controllers"},{"l":"fr.umontpellier.polytech.Models"},{"l":"fr.umontpellier.polytech.Services"}];updateSearchResults();

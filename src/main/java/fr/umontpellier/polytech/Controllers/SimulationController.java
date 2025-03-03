@@ -23,12 +23,21 @@ public class SimulationController implements SimulationUpdateListener {
     @Inject
     NBodySimulationService simulationService;
 
+    /** Called when a new WebSocket connection is opened */
     @OnOpen
     public void onOpen(Session session) {
         sessions.add(session);
         session.getAsyncRemote().sendText(simulationService.getCurrentStateAsJson());
     }
 
+    /** Called when a new message is received from a WebSocket client
+     * The message should be a JSON object with the following structure:
+     * {
+     *    "action": "start" | "update" | "stop",
+     *    "numBodies": number,
+     *    "gravity": number
+     *    }
+     * */
     @OnMessage
     public void onMessage(String message, Session session) {
         //System.out.println("📩 Received WebSocket message: " + message);
@@ -57,11 +66,13 @@ public class SimulationController implements SimulationUpdateListener {
         }
     }
 
+    /** Called when the simulation state is updated */
     @Override
     public void onSimulationUpdate(String json) {
         sendUpdateToClients(json);
     }
 
+    /** Send the given JSON string to all connected WebSocket clients */
     public void sendUpdateToClients(String json) {
         for (Session session : sessions) {
             session.getAsyncRemote().sendText(json);
